@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COFRAP - Portail Cloud Sécurisé</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <div class="brand">
+            <h1>COFRAP</h1>
+            <p>Accès Sécurisé Cloud</p>
+        </div>
+
+        <section id="login-section" class="card active">
+            <h2>Connexion</h2>
+            <form id="login-form">
+                <div class="input-group">
+                    <label for="username">Identifiant</label>
+                    <input type="text" id="username" required autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <label for="password">Mot de passe</label>
+                    <input type="password" id="password" required autocomplete="current-password">
+                </div>
+                <div class="input-group">
+                    <label for="totp">Code 2FA (TOTP)</label>
+                    <input type="text" id="totp" pattern="\d{6}" maxlength="6" placeholder="000000" required autocomplete="one-time-code">
+                </div>
+                <button type="submit" class="btn-primary">S'authentifier</button>
+            </form>
+            <div class="actions">
+                <button type="button" id="btn-show-create" class="btn-text">Générer de nouveaux accès</button>
+            </div>
+            <div id="login-message" class="message"></div>
+        </section>
+
+        <section id="create-section" class="card hidden">
+            <h2>Génération d'accès</h2>
+            <p class="info-text">Conformément à la politique de sécurité COFRAP, votre mot de passe sera généré automatiquement (24 caractères) et le 2FA est obligatoire.</p>
+            <form id="create-form">
+                <div class="input-group">
+                    <label for="new-username">Votre Identifiant</label>
+                    <input type="text" id="new-username" required autocomplete="off">
+                </div>
+                <button type="submit" class="btn-primary">Créer / Renouveler</button>
+            </form>
+            <div class="actions">
+                <button type="button" id="btn-show-login" class="btn-text">Retour à la connexion</button>
+            </div>
+            <div id="create-message" class="message"></div>
+        </section>
+
+        <section id="qr-pass-section" class="card hidden">
+            <h2>1. Votre Mot de Passe</h2>
+            <div class="qr-container">
+                <p>Scannez ce QR Code pour récupérer votre mot de passe unique. Il ne s'affichera plus jamais.</p>
+                <img id="qr-password-img" src="" alt="QR Code Mot de Passe">
+            </div>
+            <button type="button" id="btn-next-2fa" class="btn-primary mt-3">Étape suivante : Configurer le 2FA</button>
+        </section>
+
+        <section id="qr-2fa-section" class="card hidden">
+            <h2>2. Configuration 2FA</h2>
+            <div class="qr-container">
+                <p>Scannez ce QR Code avec votre application d'authentification (Google Authenticator, Authy, etc.).</p>
+                <img id="qr-2fa-img" src="" alt="QR Code 2FA">
+            </div>
+            <button type="button" id="btn-finish-setup" class="btn-primary mt-3">J'ai sécurisé mes accès</button>
+        </section>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+</body>
+</html>
