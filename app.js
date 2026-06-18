@@ -1,5 +1,6 @@
 // Базовый URL, который перехватывает Nginx
-const API_GATEWAY = `${window.location.origin}/function`;
+// const API_GATEWAY = `${window.location.origin}/function`;
+const API_GATEWAY = `/function`;
 
 // Кэширование элементов DOM
 const sections = {
@@ -35,17 +36,17 @@ async function apiAuthenticate(username, password, code_2fa) {
 }
 
 async function apiGeneratePassword(username) {
-    const response = await fetch(`${API_GATEWAY}/fn-generate-password`, {
+    const response = await fetch(`${API_GATEWAY}/generate-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username })
+        body: JSON.stringify({ user:username })
     });
     if (!response.ok) throw new Error(`Erreur serveur: ${response.status}`);
     return await response.json();
 }
 
 async function apiGenerate2FA(username) {
-    const response = await fetch(`${API_GATEWAY}/fn-generate-2fa`, {
+    const response = await fetch(`${API_GATEWAY}/generate-2fa`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username })
