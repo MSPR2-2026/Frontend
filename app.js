@@ -1,5 +1,4 @@
-// Базовый URL, который перехватывает Nginx
-const API_GATEWAY = `${window.location.origin}/function`;
+const API_GATEWAY = '/function';
 
 // Кэширование элементов DOM
 const sections = {
@@ -19,41 +18,39 @@ const messages = {
     create: document.getElementById('create-message')
 };
 
-// Глобальная переменная для передачи логина между этапами генерации
 let currentNewUsername = '';
 
-// --- 1. ФУНКЦИИ ДЛЯ ОБРАЩЕНИЯ К API OPENFAAS (КАЖДАЯ ОТДЕЛЬНО) ---
+// --- 1. ФУНКЦИИ ДЛЯ ОБРАЩЕНИЯ К API OPENFAAS ---
 
-async function apiAuthenticate(username, password, code_2fa) {
-    const response = await fetch(`${API_GATEWAY}/fn-authenticate`, {
+async function apiLogin(username, password, code_2fa) {
+    const response = await fetch(`${API_GATEWAY}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, code_2fa })
+        body: JSON.stringify({ user: username, password: password, totp: code_2fa })
     });
-    if (!response.ok) throw new Error(`Erreur serveur: ${response.status}`);
-    return await response.json();
+    if (response.status >= 500) throw new Error(`Erreur serveur: ${await response.text()}`);
+    return await response.json(); 
 }
 
 async function apiGeneratePassword(username) {
-    const response = await fetch(`${API_GATEWAY}/fn-generate-password`, {
+    const response = await fetch(`${API_GATEWAY}/generate-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username })
+        body: JSON.stringify({ user: username })
     });
-    if (!response.ok) throw new Error(`Erreur serveur: ${response.status}`);
+    if (response.status >= 500) throw new Error(`Erreur serveur: ${await response.text()}`);
     return await response.json();
 }
 
 async function apiGenerate2FA(username) {
-    const response = await fetch(`${API_GATEWAY}/fn-generate-2fa`, {
+    const response = await fetch(`${API_GATEWAY}/generate-2fa`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username })
+        body: JSON.stringify({ user: username })
     });
-    if (!response.ok) throw new Error(`Erreur serveur: ${response.status}`);
+    if (response.status >= 500) throw new Error(`Erreur serveur: ${await response.text()}`);
     return await response.json();
 }
-
 
 // --- УТИЛИТЫ ДЛЯ УПРАВЛЕНИЯ ИНТЕРФЕЙСОМ ---
 
@@ -68,7 +65,6 @@ function showMessage(el, text, type) {
     el.textContent = text;
     el.className = `message ${type}`;
 }
-
 
 // --- НАВИГАЦИЯ ПО СТРАНИЦАМ (КНОПКИ) ---
 
@@ -90,7 +86,6 @@ document.getElementById('btn-finish-setup').addEventListener('click', (e) => {
     showMessage(messages.login, 'Configuration terminée. Vous pouvez vous authentifier.', 'success');
 });
 
-
 // --- ОСНОВНАЯ ЛОГИКА: АВТОРИЗАЦИЯ ---
 
 forms.login.addEventListener('submit', async (e) => {
@@ -105,8 +100,7 @@ forms.login.addEventListener('submit', async (e) => {
     showMessage(messages.login, 'Authentification en cours...', '');
 
     try {
-        // Вызов отдельной функции авторизации
-        const data = await apiAuthenticate(username, password, code_2fa);
+        const data = await apiLogin(username, password, code_2fa);
 
         if (data.expired) {
             showMessage(messages.login, 'Identifiants expirés. Redirection vers le renouvellement...', 'error');
@@ -127,8 +121,7 @@ forms.login.addEventListener('submit', async (e) => {
     }
 });
 
-
-// --- ОСНОВНАЯ ЛОГИКА:  (ГЕНЕРАЦИЯ ПАРОЛЯ) ---
+// --- ОСНОВНАЯ ЛОГИКА: ЭТАП 1 (ГЕНЕРАЦИЯ ПАРОЛЯ) ---
 
 forms.create.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -139,11 +132,17 @@ forms.create.addEventListener('submit', async (e) => {
     showMessage(messages.create, 'Génération du mot de passe fort...', '');
     
     try {
-        // Вызов отдельной функции генерации пароля
-        const passData = await apiGeneratePassword(currentNewUsername);
+        const data = await apiGeneratePassword(currentNewUsername);
+
+        if (data.usernameTaken) {
+            showMessage(messages.create, "Cet identifiant n'est pas disponible.", 'error');
+        } else {
+            // Жесткая очистка строки Base64 от мусора
+            const cleanBase64 = data.qrcode.replace(/["'\n\r\s]/g, '');
         
-        document.getElementById('qr-password-img').src = passData.qrcode;
-        showSection('qrPass'); // Показываем карточку с первым QR
+            document.getElementById('qr-password-img').src = cleanBase64;
+            showSection('qrPass');
+        }
     } catch (error) {
         console.error(error);
         showMessage(messages.create, 'Erreur lors de la génération. La gateway est up ?', 'error');
@@ -151,7 +150,6 @@ forms.create.addEventListener('submit', async (e) => {
         submitBtn.disabled = false;
     }
 });
-
 
 // --- ОСНОВНАЯ ЛОГИКА: ЭТАП 2 (ГЕНЕРАЦИЯ 2FA) ---
 
@@ -162,11 +160,13 @@ document.getElementById('btn-next-2fa').addEventListener('click', async (e) => {
     btn.textContent = 'Génération du code 2FA en cours...';
 
     try {
-        // Вызов отдельной функции генерации 2FA
-        const mfaData = await apiGenerate2FA(currentNewUsername);
+        const data = await apiGenerate2FA(currentNewUsername);
         
-        document.getElementById('qr-2fa-img').src = mfaData.qrcode;
-        showSection('qr2fa'); // Переходим к карточке со вторым QR
+        // Жесткая очистка строки Base64 от мусора
+        const cleanBase64 = data.qrcode.replace(/["'\n\r\s]/g, '');
+        
+        document.getElementById('qr-2fa-img').src = cleanBase64;
+        showSection('qr2fa'); 
     } catch (error) {
         console.error(error);
         alert('Erreur lors de la génération du 2FA. Vérifiez la console.');
