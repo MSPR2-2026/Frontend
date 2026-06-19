@@ -32,11 +32,11 @@ async function apiLogin(username, password, code_2fa) {
     return await response.json(); 
 }
 
-async function apiGeneratePassword(username) {
+async function apiGeneratePassword(username, resetPassword) {
     const response = await fetch(`${API_GATEWAY}/generate-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: username })
+        body: JSON.stringify({ user: username, resetPassword })
     });
     if (response.status >= 500) throw new Error(`Erreur serveur: ${await response.text()}`);
     return await response.json();
@@ -106,6 +106,8 @@ forms.login.addEventListener('submit', async (e) => {
             showMessage(messages.login, 'Identifiants expirés. Redirection vers le renouvellement...', 'error');
             setTimeout(() => {
                 document.getElementById('new-username').value = username;
+                // Password is expired, we want to reset the password of the current user
+                document.getElementById('reset-password').value = "true";
                 showSection('create');
             }, 2500);
         } else if (data.authenticated) {
@@ -126,17 +128,21 @@ forms.login.addEventListener('submit', async (e) => {
 forms.create.addEventListener('submit', async (e) => {
     e.preventDefault();
     currentNewUsername = document.getElementById('new-username').value;
+    const resetPassword = document.getElementById('reset-password').value?.toLowerCase() === "true";
     const submitBtn = e.target.querySelector('button');
     
     submitBtn.disabled = true;
     showMessage(messages.create, 'Génération du mot de passe fort...', '');
     
     try {
-        const data = await apiGeneratePassword(currentNewUsername);
+        const data = await apiGeneratePassword(currentNewUsername, resetPassword);
 
         if (data.usernameTaken) {
             showMessage(messages.create, "Cet identifiant n'est pas disponible.", 'error');
         } else {
+            // Password successfuly reset, reset value of reset-password input
+            document.getElementById('reset-password').value = "false";
+
             // Жесткая очистка строки Base64 от мусора
             const cleanBase64 = data.qrcode.replace(/["'\n\r\s]/g, '');
         
