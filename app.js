@@ -22,13 +22,13 @@ let currentNewUsername = '';
 
 // --- 1. ФУНКЦИИ ДЛЯ ОБРАЩЕНИЯ К API OPENFAAS ---
 
-async function apiAuthenticate(username, password, code_2fa) {
-    const response = await fetch(`${API_GATEWAY}/authenticate`, {
+async function apiLogin(username, password, code_2fa) {
+    const response = await fetch(`${API_GATEWAY}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: username, password: password, code_2fa: code_2fa })
+        body: JSON.stringify({ user: username, password: password, totp: code_2fa })
     });
-    if (!response.ok) throw new Error(`Erreur serveur: ${response.status}`);
+    if (response.status >= 500) throw new Error(`Erreur serveur: ${await response.text()}`);
     return await response.json(); 
 }
 
@@ -38,15 +38,8 @@ async function apiGeneratePassword(username) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user: username })
     });
-    if (!response.ok) throw new Error(`Erreur serveur: ${response.status}`);
-    
-    const textData = await response.text(); 
-    try {
-        const jsonData = JSON.parse(textData); 
-        return jsonData.qrcode || jsonData.image || jsonData.data || textData;
-    } catch (e) {
-        return textData; 
-    }
+    if (response.status >= 500) throw new Error(`Erreur serveur: ${await response.text()}`);
+    return await response.json();
 }
 
 async function apiGenerate2FA(username) {
@@ -55,15 +48,8 @@ async function apiGenerate2FA(username) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user: username })
     });
-    if (!response.ok) throw new Error(`Erreur serveur: ${response.status}`);
-    
-    const textData = await response.text();
-    try {
-        const jsonData = JSON.parse(textData);
-        return jsonData.qrcode || jsonData.image || jsonData.data || textData;
-    } catch (e) {
-        return textData;
-    }
+    if (response.status >= 500) throw new Error(`Erreur serveur: ${await response.text()}`);
+    return await response.json();
 }
 
 // --- УТИЛИТЫ ДЛЯ УПРАВЛЕНИЯ ИНТЕРФЕЙСОМ ---
@@ -114,7 +100,7 @@ forms.login.addEventListener('submit', async (e) => {
     showMessage(messages.login, 'Authentification en cours...', '');
 
     try {
-        const data = await apiAuthenticate(username, password, code_2fa);
+        const data = await apiLogin(username, password, code_2fa);
 
         if (data.expired) {
             showMessage(messages.login, 'Identifiants expirés. Redirection vers le renouvellement...', 'error');
@@ -146,13 +132,17 @@ forms.create.addEventListener('submit', async (e) => {
     showMessage(messages.create, 'Génération du mot de passe fort...', '');
     
     try {
-        const passData = await apiGeneratePassword(currentNewUsername);
+        const data = await apiGeneratePassword(currentNewUsername);
+
+        if (data.usernameTaken) {
+            showMessage(messages.create, "Cet identifiant n'est pas disponible.", 'error');
+        } else {
+            // Жесткая очистка строки Base64 от мусора
+            const cleanBase64 = data.qrcode.replace(/["'\n\r\s]/g, '');
         
-        // Жесткая очистка строки Base64 от мусора
-        const cleanBase64 = passData.replace(/["'\n\r\s]/g, '');
-        
-        document.getElementById('qr-password-img').src = cleanBase64;
-        showSection('qrPass');
+            document.getElementById('qr-password-img').src = cleanBase64;
+            showSection('qrPass');
+        }
     } catch (error) {
         console.error(error);
         showMessage(messages.create, 'Erreur lors de la génération. La gateway est up ?', 'error');
@@ -170,10 +160,10 @@ document.getElementById('btn-next-2fa').addEventListener('click', async (e) => {
     btn.textContent = 'Génération du code 2FA en cours...';
 
     try {
-        const mfaData = await apiGenerate2FA(currentNewUsername);
+        const data = await apiGenerate2FA(currentNewUsername);
         
         // Жесткая очистка строки Base64 от мусора
-        const cleanBase64 = mfaData.replace(/["'\n\r\s]/g, '');
+        const cleanBase64 = data.qrcode.replace(/["'\n\r\s]/g, '');
         
         document.getElementById('qr-2fa-img').src = cleanBase64;
         showSection('qr2fa'); 
