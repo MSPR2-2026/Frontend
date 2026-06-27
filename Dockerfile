@@ -23,8 +23,6 @@ FROM nginx:1.25-alpine
 COPY --from=build /src/dist /usr/share/nginx/html/
 
 # Copy nginx config
-COPY nginx.conf.template /nginx.conf.template
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
-
-CMD ["/bin/sh" , "-c" , "envsubst '$OPENFAAS_GATEWAY_URL' < /nginx.conf.template > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'"]
