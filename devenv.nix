@@ -13,10 +13,29 @@
     '';
   };
 
-  processes.front-port-forward = {
-    after = [ "front:create" ];
+  tasks."traefik:install" = {
     exec = /* sh */ ''
-      kubectl port-forward svc/frontend 8081:80
+      helm repo add traefik https://traefik.github.io/charts
+      helm install traefik \
+        --set providers.kubernetesCRD.allowCrossNamespace=true \
+        traefik/traefik
+    '';
+  };
+
+  tasks."traefik:create" = {
+    after = [
+      "traefik:install"
+      "front:create"
+    ];
+    exec = /* sh */ ''
+      kubectl apply -f traefik.yaml
+    '';
+  };
+
+  processes.traefik-port-forward = {
+    after = [ "traefik:create" ];
+    exec = /* sh */ ''
+      kubectl port-forward svc/traefik 8081:80
     '';
     ready = {
       http.get.port = 8081;
